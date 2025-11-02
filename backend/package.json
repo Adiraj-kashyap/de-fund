@@ -1,0 +1,25 @@
+{
+  "name": "milestone-funding-backend",
+  "version": "1.0.0",
+  "description": "Backend API and indexing service for milestone funding platform",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "index": "node scripts/indexer.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "ethers": "^6.9.0",
+    "better-sqlite3": "^9.2.2",
+    "ipfs-http-client": "^60.0.1",
+    "axios": "^1.6.2",
+    "multer": "^1.4.5-lts.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}

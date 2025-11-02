@@ -1,78 +1,95 @@
 # Milestone-Based Decentralized Funding Platform
 
-A decentralized crowdfunding platform that uses blockchain smart contracts to enforce accountability through milestone-based fund releases. Built with Solidity, Hardhat, and designed for deployment on Ethereum Sepolia testnet.
+A complete decentralized crowdfunding platform that uses blockchain smart contracts to enforce accountability through milestone-based fund releases verified by DAO governance.
 
-## ?? Core Concept
+## ?? Overview
 
 This platform addresses a key weakness of traditional crowdfunding?the risk of project failure after receiving all funds?by implementing:
 
-- **Smart Contract Escrow**: Funds are held in escrow until milestones are verified
-- **All-or-Nothing Funding**: Funds are only accessible if the total funding goal is met
+- **Smart Contract Escrow**: Funds held securely until milestones are verified
+- **All-or-Nothing Funding**: Funds only accessible if total goal is met
 - **DAO-Based Verification**: Governance token holders vote on milestone completion
-- **Automatic Fund Release**: Smart contracts automatically release funds upon successful verification
-- **Transparent Tracking**: All transactions and votes are recorded on-chain
+- **Automatic Fund Release**: Smart contracts release funds upon successful verification
+- **Transparent Tracking**: All transactions and votes recorded on-chain
 
 ## ??? Architecture
 
-### Smart Contracts
+### Smart Contracts (`/contracts`)
+- **FundingEscrow.sol**: Manages fund deposits, milestone-based releases, and refunds
+- **MilestoneGovernance.sol**: DAO system for voting on milestone completion
+- **GovernanceToken.sol**: ERC20 token for governance voting rights
 
-1. **FundingEscrow.sol**: Manages fund deposits, milestone-based releases, and refunds
-2. **MilestoneGovernance.sol**: DAO system for voting on milestone completion
-3. **GovernanceToken.sol**: ERC20 token for governance voting rights
+### Frontend (`/frontend`)
+- React 18 with Vite
+- Wagmi v2 for Ethereum interactions
+- RainbowKit for wallet connections
+- Tailwind CSS for styling
+- Complete UI for all platform features
 
-### Key Features
+### Backend (`/backend`)
+- Express.js REST API
+- SQLite database for off-chain data
+- Blockchain event indexer
+- IPFS integration for evidence storage
 
-- ? Milestone-specific fund allocation
-- ? Decentralized voting mechanism
-- ? Token staking for voting rights
-- ? Automatic refunds if funding goal not met
-- ? Reentrancy protection
-- ? Comprehensive event logging
+## ?? Quick Start
 
-## ?? Prerequisites
+### Prerequisites
 
-- Node.js (v18 or higher)
+- Node.js 18+
 - npm or yarn
 - MetaMask or another Ethereum wallet
 - Sepolia ETH for deployment (get from [faucet](https://sepoliafaucet.com/))
 
-## ?? Quick Start
-
-### 1. Install Dependencies
+### 1. Smart Contracts Setup
 
 ```bash
+# Install dependencies
 npm install
-```
 
-### 2. Configure Environment
-
-Copy `.env.example` to `.env` and fill in your values:
-
-```bash
-cp .env.example .env
-```
-
-Update `.env` with:
-- `SEPOLIA_RPC_URL`: Your Sepolia RPC endpoint
-- `PRIVATE_KEY`: Your deployer wallet private key
-- `ETHERSCAN_API_KEY`: Your Etherscan API key (for verification)
-
-### 3. Compile Contracts
-
-```bash
+# Compile contracts
 npm run compile
-```
 
-### 4. Run Tests
-
-```bash
+# Run tests
 npm run test
+
+# Deploy to Sepolia (update .env first)
+npm run deploy:sepolia
 ```
 
-### 5. Deploy to Sepolia
+### 2. Backend Setup
 
 ```bash
-npm run deploy:sepolia
+cd backend
+
+# Install dependencies
+npm install
+
+# Create .env file
+cp .env.example .env
+# Update .env with contract addresses and RPC URL
+
+# Start backend server
+npm start
+
+# In another terminal, run the indexer
+npm run index
+```
+
+### 3. Frontend Setup
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Create .env file
+cp .env.example .env
+# Update .env with contract addresses and API URL
+
+# Start development server
+npm run dev
 ```
 
 ## ?? Project Structure
@@ -83,142 +100,164 @@ npm run deploy:sepolia
 ?   ??? FundingEscrow.sol
 ?   ??? MilestoneGovernance.sol
 ?   ??? GovernanceToken.sol
-??? scripts/               # Deployment and interaction scripts
+??? scripts/               # Deployment scripts
 ?   ??? deploy.js
 ?   ??? interact.js
 ??? test/                  # Hardhat tests
 ?   ??? FundingEscrow.test.js
 ?   ??? MilestoneGovernance.test.js
 ?   ??? GovernanceToken.test.js
-??? hardhat.config.js      # Hardhat configuration
-??? package.json           # Dependencies
+??? backend/               # Node.js backend
+?   ??? routes/           # API routes
+?   ??? db/               # Database setup
+?   ??? scripts/          # Indexer script
+?   ??? server.js         # Express server
+??? frontend/             # React frontend
+    ??? src/
+    ?   ??? components/  # React components
+    ?   ??? pages/        # Page components
+    ?   ??? config/       # Configuration
+    ??? vite.config.js
 ```
 
-## ?? Usage
+## ?? Configuration
 
-### Creating a Project
-
-1. Deploy the contracts using `deploy.js`
-2. Update the project owner address in the deployment script
-3. Configure milestone allocations (must sum to funding goal)
-
-### Donating to a Project
-
-```javascript
-await fundingEscrow.donate({ value: ethers.parseEther("10") });
+### Smart Contracts (.env)
+```env
+SEPOLIA_RPC_URL=https://rpc.sepolia.org
+PRIVATE_KEY=your_private_key_here
+ETHERSCAN_API_KEY=your_etherscan_api_key_here
 ```
 
-### Creating a Milestone Proposal
-
-```javascript
-await milestoneGovernance.createMilestoneProposal(
-  0, // stage index
-  "QmHash123..." // IPFS evidence hash
-);
+### Backend (.env)
+```env
+PORT=5000
+RPC_URL=https://rpc.sepolia.org
+DATABASE_PATH=./data/database.db
+CONTRACT_ADDRESSES={"FundingEscrow":"0x...","MilestoneGovernance":"0x...","GovernanceToken":"0x..."}
+IPFS_API_URL=http://localhost:5001
+CORS_ORIGIN=http://localhost:3000
 ```
 
-### Voting on a Milestone
-
-1. Stake governance tokens:
-```javascript
-await governanceToken.approve(milestoneGovernanceAddress, amount);
-await milestoneGovernance.stakeTokens(amount);
+### Frontend (.env)
+```env
+VITE_RPC_URL=https://rpc.sepolia.org
+VITE_CONTRACT_ADDRESSES={"FundingEscrow":"0x...","MilestoneGovernance":"0x...","GovernanceToken":"0x..."}
+VITE_API_URL=http://localhost:5000
+VITE_IPFS_GATEWAY=https://ipfs.io/ipfs/
 ```
 
-2. Vote:
-```javascript
-await milestoneGovernance.vote(proposalId, true); // true = approve
-```
+## ?? Usage Guide
 
-3. Execute after voting deadline:
-```javascript
-await milestoneGovernance.checkVoteResult(proposalId);
-```
+### For Project Creators
+
+1. **Create a Project**
+   - Connect your wallet
+   - Go to "Create Project"
+   - Fill in project details, funding goal, deadline, and milestone allocations
+   - Deploy the smart contract (or use factory pattern)
+
+2. **Submit Milestone Completion**
+   - Navigate to your project
+   - Click "Submit Milestone Completion" for the current milestone
+   - Upload evidence (photos, documents) to IPFS
+   - Create a proposal with the IPFS hash
+
+3. **Receive Funds**
+   - Once the proposal passes voting, funds are automatically released
+
+### For Donors/Voters
+
+1. **Donate to Projects**
+   - Browse projects on the homepage
+   - Click on a project to view details
+   - Enter donation amount and click "Donate"
+
+2. **Participate in Governance**
+   - Stake governance tokens (minimum required)
+   - View active proposals
+   - Review evidence and vote on milestone completion
+   - Execute proposals after voting deadline
 
 ## ?? Testing
 
-Run all tests:
+### Smart Contracts
 ```bash
 npm run test
 ```
 
-Run specific test file:
-```bash
-npx hardhat test test/FundingEscrow.test.js
-```
+All 42 tests should pass, covering:
+- Contract deployment
+- Donations and fund management
+- Milestone verification and voting
+- Token staking and governance
+- Refund mechanisms
 
 ## ?? Security Features
 
-- ReentrancyGuard protection on all external calls
-- Access control with OpenZeppelin's Ownable
-- Input validation on all functions
-- Safe math operations (Solidity 0.8.20)
-- Quorum requirements for voting
-
-## ?? Smart Contract Details
-
-### FundingEscrow
-
-**Key Functions:**
-- `donate()`: Contribute ETH to the project
-- `releaseFunds(uint256 stageIndex)`: Release funds for a milestone (governance only)
-- `refund()`: Refund donors if goal not met or project failed
-- `markProjectAsFailed()`: Mark project as failed (governance only)
-
-**Events:**
-- `FundsDonated`: Emitted when a donation is made
-- `FundsReleased`: Emitted when milestone funds are released
-- `RefundIssued`: Emitted when a refund is processed
-
-### MilestoneGovernance
-
-**Key Functions:**
-- `createMilestoneProposal(uint256 stageIndex, string evidenceHash)`: Create a new proposal
-- `vote(uint256 proposalId, bool inFavor)`: Vote on a proposal
-- `checkVoteResult(uint256 proposalId)`: Execute proposal if passed
-- `stakeTokens(uint256 amount)`: Stake tokens for voting rights
-- `unstakeTokens(uint256 amount)`: Unstake tokens
-
-**Voting Requirements:**
-- Minimum stake required to vote
-- 30% quorum threshold
-- Majority vote (>50%) for approval
+- **Reentrancy Protection**: All external calls protected
+- **Access Control**: Owner and governance-only functions
+- **Input Validation**: Comprehensive checks on all inputs
+- **Safe Math**: Solidity 0.8.20 built-in overflow protection
+- **Quorum Requirements**: Prevents low-participation attacks
 
 ## ?? Deployment
 
-### Local Network
+### Smart Contracts to Sepolia
 
-```bash
-npx hardhat node
-# In another terminal:
-npx hardhat run scripts/deploy.js --network localhost
-```
+1. Update `hardhat.config.js` with your network settings
+2. Add private key to `.env`
+3. Run: `npm run deploy:sepolia`
+4. Save contract addresses to backend and frontend `.env` files
 
-### Sepolia Testnet
+### Backend Deployment
 
-```bash
-npm run deploy:sepolia
-```
+- Deploy to any Node.js hosting (Heroku, Railway, DigitalOcean)
+- Set environment variables
+- Run indexer as a cron job or background service
+
+### Frontend Deployment
+
+- Build: `npm run build`
+- Deploy `dist/` folder to Vercel, Netlify, or any static hosting
+- Update environment variables
+
+## ?? Documentation
+
+- [Smart Contract Overview](./CONTRACT_OVERVIEW.md) - Detailed contract documentation
+- [Frontend README](./frontend/README.md) - Frontend setup and usage
+- [Backend README](./backend/README.md) - Backend API documentation
 
 ## ?? Future Enhancements
 
-- [ ] IPFS integration for evidence storage
+- [ ] Contract factory for easy project creation
 - [ ] Gas fee abstraction for voters
 - [ ] Kleros integration for dispute resolution
 - [ ] Reputation system for voters
 - [ ] Multi-token support (ERC20 donations)
-- [ ] Frontend React/Vue application
-- [ ] The Graph indexing for off-chain queries
-- [ ] Batch operations for efficiency
+- [ ] The Graph subgraph for advanced queries
+- [ ] Mobile app support
+- [ ] Email notifications
+- [ ] Social features (comments, shares)
+
+## ?? Contributing
+
+Contributions are welcome! Please ensure all tests pass before submitting PRs.
 
 ## ?? License
 
 MIT
 
-## ?? Contributing
-
-Contributions are welcome! Please ensure all tests pass before submitting a pull request.
-
 ## ?? Disclaimer
 
 This is experimental software. Use at your own risk. Always audit smart contracts before deploying to mainnet.
+
+## ?? Acknowledgments
+
+Built with:
+- Hardhat
+- React & Vite
+- Wagmi & RainbowKit
+- Express.js
+- SQLite
+- IPFS
