@@ -1,9 +1,11 @@
 import { Link, useLocation } from 'react-router-dom';
 import { WalletConnect } from './WalletConnect';
-import { Home, LayoutGrid, Vote, User } from 'lucide-react';
+import { Home, LayoutGrid, Vote, User, Plus } from 'lucide-react';
+import { useAccount } from 'wagmi';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
+  const { isConnected } = useAccount();
 
   const navItems = [
     { path: '/', label: 'Home', icon: Home },
@@ -48,6 +50,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   </Link>
                 );
               })}
+              {isConnected && (
+                <Link
+                  to="/projects/create"
+                  className="btn-primary"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create Project
+                </Link>
+              )}
             </nav>
 
             {/* Wallet Connect */}

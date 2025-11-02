@@ -7,6 +7,7 @@ import { Layout } from './components/Layout';
 import { Home } from './pages/Home';
 import { Projects } from './pages/Projects';
 import { ProjectDetail } from './pages/ProjectDetail';
+import { CreateProject } from './pages/CreateProject';
 import { Governance } from './pages/Governance';
 import { Profile } from './pages/Profile';
 
@@ -28,6 +29,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/projects" element={<Projects />} />
+              <Route path="/projects/create" element={<CreateProject />} />
               <Route path="/project/:address" element={<ProjectDetail />} />
               <Route path="/governance" element={<Governance />} />
               <Route path="/profile" element={<Profile />} />
