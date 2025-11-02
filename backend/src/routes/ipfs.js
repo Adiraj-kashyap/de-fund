@@ -29,9 +29,11 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
     const { PINATA_API_KEY, PINATA_SECRET_KEY } = process.env;
 
     if (!PINATA_API_KEY || !PINATA_SECRET_KEY) {
-      return res.status(500).json({
+      return res.status(503).json({
         success: false,
         error: 'IPFS upload not configured',
+        hint: 'Configure PINATA_API_KEY and PINATA_SECRET_KEY in backend/.env to enable IPFS uploads',
+        suggestion: 'Project can be created without an image. Images can be added later.',
       });
     }
 

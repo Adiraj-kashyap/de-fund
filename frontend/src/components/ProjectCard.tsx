@@ -9,10 +9,12 @@ interface ProjectCardProps {
   description: string;
   fundsRaised: bigint;
   fundingGoal: bigint;
-  timeRemaining: bigint;
+  timeRemaining: number | bigint; // Accept both number (hours) and bigint (seconds)
   currentStage: number;
   totalStages: number;
   image?: string;
+  imageUrl?: string; // Support both image and imageUrl props
+  category?: string;
 }
 
 export function ProjectCard({
@@ -25,23 +27,41 @@ export function ProjectCard({
   currentStage,
   totalStages,
   image,
+  imageUrl,
+  category,
 }: ProjectCardProps) {
-  const percentage = Number(fundsRaised) / Number(fundingGoal) * 100;
-  const isActive = timeRemaining > 0n;
+  const percentage = Number(fundingGoal) > 0 ? (Number(fundsRaised) / Number(fundingGoal) * 100) : 0;
+  // Convert timeRemaining to hours if it's bigint (seconds), otherwise use as-is
+  const timeRemainingHours = typeof timeRemaining === 'bigint' 
+    ? Number(timeRemaining) / (60 * 60) // Convert seconds to hours
+    : timeRemaining;
+  const isActive = timeRemainingHours > 0;
+  
+  // Use imageUrl if provided, otherwise image
+  const displayImage = imageUrl || image;
 
   return (
     <Link to={`/project/${address}`}>
-      <div className="card hover:shadow-lg transition-shadow cursor-pointer h-full flex flex-col">
+      <div className="card hover:shadow-lg transition-shadow cursor-pointer h-full flex flex-col relative">
         {/* Image */}
-        {image ? (
+        {displayImage ? (
           <img 
-            src={image} 
+            src={displayImage} 
             alt={title}
             className="w-full h-48 object-cover rounded-t-lg -mx-6 -mt-6 mb-4"
           />
         ) : (
           <div className="w-full h-48 bg-gradient-to-br from-primary-100 to-primary-200 rounded-t-lg -mx-6 -mt-6 mb-4 flex items-center justify-center">
             <Target className="w-16 h-16 text-primary-400" />
+          </div>
+        )}
+        
+        {/* Category Badge */}
+        {category && (
+          <div className="absolute top-2 right-2">
+            <span className="badge-secondary text-xs">
+              {category.charAt(0).toUpperCase() + category.slice(1)}
+            </span>
           </div>
         )}
 
@@ -83,7 +103,14 @@ export function ProjectCard({
               </div>
               <div className={`flex items-center gap-1 ${isActive ? 'text-success' : 'text-danger'}`}>
                 <Clock className="w-4 h-4" />
-                <span>{formatTimeRemaining(timeRemaining)}</span>
+                <span>
+                  {timeRemainingHours > 24 
+                    ? `${Math.floor(timeRemainingHours / 24)}d ${Math.floor(timeRemainingHours % 24)}h`
+                    : timeRemainingHours > 0
+                    ? `${Math.floor(timeRemainingHours)}h`
+                    : 'Ended'
+                  }
+                </span>
               </div>
             </div>
 

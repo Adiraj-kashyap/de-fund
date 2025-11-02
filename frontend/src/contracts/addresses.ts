@@ -4,7 +4,7 @@ export const CONTRACTS = {
   MILESTONE_GOVERNANCE: (import.meta.env.VITE_GOVERNANCE_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`,
 } as const;
 
-export const CHAIN_ID = import.meta.env.VITE_CHAIN_ID || '11155111'; // Sepolia by default
+export const CHAIN_ID = import.meta.env.VITE_CHAIN_ID || '1337'; // Local development (1337) by default, use 11155111 for Sepolia
 
 export const isContractsDeployed = () => {
   return (

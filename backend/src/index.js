@@ -9,6 +9,7 @@ import userRoutes from './routes/users.js';
 import proposalRoutes from './routes/proposals.js';
 import ipfsRoutes from './routes/ipfs.js';
 import statsRoutes from './routes/stats.js';
+import deployRoutes from './routes/deploy.js';
 
 dotenv.config();
 
@@ -37,6 +38,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/proposals', proposalRoutes);
 app.use('/api/ipfs', ipfsRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/deploy', deployRoutes);
 
 // 404 handler
 app.use((req, res) => {

@@ -3,9 +3,12 @@ import { useAccount } from 'wagmi';
 import { useNavigate } from 'react-router-dom';
 import { Upload, Plus, Trash2, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { createProject as createProjectAPI } from '../lib/api';
+import { uploadToIPFS } from '../lib/ipfs';
+import { parseEther } from 'viem';
 
 export function CreateProject() {
-  const { address, isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
@@ -20,6 +23,10 @@ export function CreateProject() {
     totalStages: '5',
     image: null as File | null,
   });
+
+  // Manual deployment option
+  const [deploymentMode, setDeploymentMode] = useState<'auto' | 'manual'>('auto');
+  const [manualContractAddress, setManualContractAddress] = useState('');
 
   const [milestones, setMilestones] = useState([
     { title: 'Milestone 1', description: '', allocation: '20' },
@@ -123,18 +130,176 @@ export function CreateProject() {
     setIsSubmitting(true);
 
     try {
-      // TODO: Deploy smart contract with formData
-      // TODO: Upload image to IPFS
-      // TODO: Call backend API to store project metadata
+      if (!address) {
+        toast.error('Wallet address not available');
+        return;
+      }
+
+      // Calculate funding deadline (duration in days)
+      const deadline = Math.floor(Date.now() / 1000) + (parseInt(formData.duration) * 24 * 60 * 60);
       
-      // Mock successful submission
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Convert funding goal to wei
+      const fundingGoalWei = parseEther(formData.fundingGoal).toString();
       
-      toast.success('Project created successfully!');
-      navigate('/projects');
-    } catch (error) {
+      // Step 1: Upload image to IPFS (if provided) - before creating project
+      let imageUrl: string | undefined;
+      if (formData.image) {
+        try {
+          toast.loading('Uploading image to IPFS...');
+          imageUrl = await uploadToIPFS(formData.image);
+          toast.dismiss();
+          toast.success('Image uploaded successfully!');
+        } catch (error: any) {
+          console.warn('IPFS upload failed, continuing without image:', error);
+          toast.dismiss();
+          toast('Image upload skipped (IPFS not configured). Project will be created without image.', { 
+            icon: 'ℹ️',
+            duration: 5000 
+          });
+          // Continue without image - user can add it later
+        }
+      }
+      
+      // Step 2: Create project in backend
+      let contractAddress: `0x${string}` | undefined;
+      
+      if (deploymentMode === 'manual') {
+        // Manual deployment mode - user provides contract address
+        const trimmedAddress = manualContractAddress.trim();
+        if (!trimmedAddress || !trimmedAddress.match(/^0x[a-fA-F0-9]{40}$/i)) {
+          toast.error('Please enter a valid contract address (0x followed by 40 hex characters)');
+          setIsSubmitting(false);
+          return;
+        }
+        
+        contractAddress = trimmedAddress.toLowerCase() as `0x${string}`;
+        toast.loading('Creating project with manual contract address...');
+        
+        // For manual deployment, we include the contract_address
+        const projectData = {
+          contract_address: contractAddress, // Include contract address for manual deployment
+          owner_address: address,
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          image_url: imageUrl,
+          funding_goal: fundingGoalWei,
+          funding_deadline: deadline.toString(),
+          total_stages: parseInt(formData.totalStages),
+          milestones: milestones.map((m, idx) => ({
+            stage_index: idx,
+            title: m.title,
+            description: m.description,
+            allocation_percentage: parseFloat(m.allocation) * 100,
+          })),
+        };
+        
+        const apiResponse = await createProjectAPI(projectData);
+        
+        if (!apiResponse.success) {
+          toast.error(apiResponse.error || 'Failed to create project with manual contract address');
+          return;
+        }
+        
+        toast.dismiss();
+        toast.success(`Project created with manual contract at ${contractAddress.slice(0, 10)}...`);
+        
+        setTimeout(() => {
+          navigate(`/project/${contractAddress}`);
+        }, 1500);
+        return;
+      } else {
+        // Automatic deployment mode - backend will deploy contract
+        toast.loading('Creating project and deploying smart contract...');
+        
+        // Note: contract_address is NOT sent - backend will deploy it automatically
+        // The project creator (owner_address) will automatically get 20% stake
+        const projectData = {
+          owner_address: address, // This wallet will get 20% of profit stake
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          image_url: imageUrl,
+          funding_goal: fundingGoalWei,
+          funding_deadline: deadline.toString(),
+          total_stages: parseInt(formData.totalStages),
+          milestones: milestones.map((m, idx) => ({
+            stage_index: idx,
+            title: m.title,
+            description: m.description,
+            allocation_percentage: parseFloat(m.allocation) * 100, // Convert to basis points (100 = 1%)
+          })),
+        };
+        
+        const apiResponse = await createProjectAPI(projectData);
+      
+        // Extract contract address from response (deployed by backend)
+        let contractAddress: `0x${string}` | undefined;
+        if (apiResponse.success && apiResponse.data?.contract_address) {
+          contractAddress = apiResponse.data.contract_address as `0x${string}`;
+          console.log('✅ Project created with contract:', contractAddress);
+        }
+      
+        if (!apiResponse.success || !contractAddress) {
+          // Backend API failed or contract deployment failed
+          console.error('Project creation failed:', apiResponse.error);
+          toast.dismiss();
+          
+          const errorMsg = apiResponse.error || 'Failed to create project';
+          const suggestion = (apiResponse as any).suggestion || '';
+          
+          if (errorMsg.includes('Hardhat node') || errorMsg.includes('ECONNREFUSED')) {
+            toast.error(
+              'Cannot connect to Hardhat node. Please start it or use Manual Deployment mode.',
+              { 
+                duration: 10000,
+                icon: '⚠️'
+              }
+            );
+          } else if (apiResponse.error?.includes('FALLBACK_CONTRACT_ADDRESS') || apiResponse.error?.includes('deployment failed')) {
+            toast.error(
+              `Contract deployment failed. ${suggestion || 'Try using Manual Deployment mode instead.'}`,
+              { 
+                duration: 10000,
+                icon: '⚠️'
+              }
+            );
+          } else {
+            toast.error(errorMsg, { duration: 8000 });
+          }
+          
+          // Show hint if available
+          if ((apiResponse as any).hint) {
+            setTimeout(() => {
+              toast((apiResponse as any).hint, { 
+                icon: '💡',
+                duration: 8000 
+              });
+            }, 2000);
+          }
+          
+          // Don't save to localStorage if backend fails - user should fix the issue
+          return;
+        }
+        
+        toast.dismiss();
+        toast.success(`Project created! Contract deployed at ${contractAddress.slice(0, 10)}...`);
+        
+        // Wait a bit longer to ensure contract is fully confirmed on chain
+        // This gives Hardhat node time to process and frontend time to sync
+        console.log('✅ Project created successfully! Contract:', contractAddress);
+        console.log('   Waiting 2 seconds before navigation to ensure contract is ready...');
+        
+        // Redirect to project page using contract address from backend
+        setTimeout(() => {
+          console.log('   Navigating to project page...');
+          navigate(`/project/${contractAddress}`);
+        }, 2000); // Increased to 2 seconds
+      }
+    } catch (error: any) {
       console.error('Error creating project:', error);
-      toast.error('Failed to create project');
+      toast.dismiss();
+      toast.error(`Failed to create project: ${error.message || 'Unknown error'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -444,6 +609,87 @@ export function CreateProject() {
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* Deployment Mode Selection */}
+              <div className="border-t pt-6 mt-6">
+                <h4 className="font-semibold text-gray-700 mb-4">Contract Deployment</h4>
+                
+                <div className="space-y-4">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="deploymentMode"
+                      value="auto"
+                      checked={deploymentMode === 'auto'}
+                      onChange={(e) => setDeploymentMode(e.target.value as 'auto' | 'manual')}
+                      className="w-4 h-4 text-primary"
+                    />
+                    <div>
+                      <div className="font-medium text-gray-900">Automatic Deployment (Recommended)</div>
+                      <div className="text-sm text-gray-600">
+                        Contract will be deployed automatically when you create the project
+                      </div>
+                    </div>
+                  </label>
+                  
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="deploymentMode"
+                      value="manual"
+                      checked={deploymentMode === 'manual'}
+                      onChange={(e) => setDeploymentMode(e.target.value as 'auto' | 'manual')}
+                      className="w-4 h-4 text-primary"
+                    />
+                    <div>
+                      <div className="font-medium text-gray-900">Manual Deployment</div>
+                      <div className="text-sm text-gray-600">
+                        Deploy contract manually and enter the address
+                      </div>
+                    </div>
+                  </label>
+                </div>
+
+                {deploymentMode === 'manual' && (
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="mb-3">
+                      <label className="label text-sm">Contract Address *</label>
+                      <input
+                        type="text"
+                        value={manualContractAddress}
+                        onChange={(e) => setManualContractAddress(e.target.value)}
+                        placeholder="0x..."
+                        className="input font-mono text-sm"
+                        pattern="^0x[a-fA-F0-9]{40}$"
+                      />
+                      <p className="text-xs text-gray-600 mt-1">
+                        Enter the contract address from your manual deployment
+                      </p>
+                    </div>
+                    
+                    <details className="mt-3">
+                      <summary className="text-sm font-medium text-blue-900 cursor-pointer">
+                        📖 How to deploy manually
+                      </summary>
+                      <div className="mt-2 text-xs text-gray-700 space-y-2 pl-4 border-l-2 border-blue-300">
+                        <p><strong>1.</strong> Open terminal in <code className="bg-gray-200 px-1 rounded">blockchain</code> directory</p>
+                        <p><strong>2.</strong> Make sure Hardhat node is running: <code className="bg-gray-200 px-1 rounded">npx hardhat node</code></p>
+                        <p><strong>3.</strong> Deploy contract:</p>
+                        <pre className="bg-gray-100 p-2 rounded text-xs overflow-x-auto mt-1">
+{`npx hardhat run scripts/deployManually.js --network hardhat -- \\
+  ${address || 'YOUR_WALLET_ADDRESS'} \\
+  ${formData.fundingGoal || '10'} \\
+  ${formData.duration || '30'} \\
+  ${formData.totalStages || '5'} \\
+  "[${milestones.map(m => Math.floor(parseFloat(m.allocation || '20') * 100)).join(',')}]"`}
+                        </pre>
+                        <p><strong>4.</strong> Copy the contract address from the output</p>
+                        <p><strong>5.</strong> Paste it in the field above</p>
+                      </div>
+                    </details>
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -251,9 +251,91 @@ contract FundingEscrow is ReentrancyGuard, Ownable {
     }
     
     /**
+     * @dev Distribute profits from project revenue
+     * @notice Divides profits between project owner (20%) and donors (80%) based on their contribution percentage
+     * @param totalProfit Total profit amount in wei to distribute
+     */
+    function distributeProfit(uint256 totalProfit) external onlyProjectOwner nonReentrant {
+        require(fundingGoalReached, "Funding goal must be reached");
+        require(totalProfit > 0, "Profit must be greater than 0");
+        require(address(this).balance >= totalProfit, "Insufficient contract balance");
+        
+        // Project owner gets 20% of profits
+        uint256 ownerShare = (totalProfit * 2000) / 10000; // 20%
+        uint256 donorShare = totalProfit - ownerShare; // 80% for donors
+        
+        // Transfer owner's share
+        if (ownerShare > 0) {
+            (bool ownerSuccess, ) = payable(projectOwner).call{value: ownerShare}("");
+            require(ownerSuccess, "Owner profit transfer failed");
+        }
+        
+        // Distribute donor share proportionally based on contributions
+        if (donorShare > 0 && fundsRaised > 0) {
+            for (uint256 i = 0; i < donors.length; i++) {
+                address donor = donors[i];
+                uint256 donorContribution = contributions[donor];
+                
+                if (donorContribution > 0) {
+                    // Calculate donor's share: (donor contribution / total funds raised) * donor share
+                    uint256 donorProfit = (donorShare * donorContribution) / fundsRaised;
+                    
+                    if (donorProfit > 0) {
+                        (bool donorSuccess, ) = payable(donor).call{value: donorProfit}("");
+                        require(donorSuccess, "Donor profit transfer failed");
+                    }
+                }
+            }
+        }
+        
+        emit ProfitDistributed(totalProfit, ownerShare, donorShare);
+    }
+    
+    /**
+     * @dev Calculate a donor's expected profit share for a given profit amount
+     * @param donor Address of the donor
+     * @param totalProfit Total profit amount in wei
+     * @return profitShare The donor's share in wei
+     */
+    function calculateDonorProfitShare(address donor, uint256 totalProfit) external view returns (uint256) {
+        if (!fundingGoalReached || fundsRaised == 0 || contributions[donor] == 0) {
+            return 0;
+        }
+        
+        uint256 donorShare = (totalProfit * 8000) / 10000; // 80% for all donors
+        return (donorShare * contributions[donor]) / fundsRaised;
+    }
+    
+    /**
+     * @dev Calculate project owner's expected profit share
+     * @param totalProfit Total profit amount in wei
+     * @return profitShare The owner's share (20%)
+     */
+    function calculateOwnerProfitShare(uint256 totalProfit) external view returns (uint256) {
+        if (!fundingGoalReached) {
+            return 0;
+        }
+        return (totalProfit * 2000) / 10000; // 20%
+    }
+    
+    /**
+     * @dev Allows project owner to deposit profits into the contract for distribution
+     * @notice Call this before distributeProfit()
+     */
+    function depositProfit() external payable onlyProjectOwner {
+        require(msg.value > 0, "Must deposit profit");
+        require(fundingGoalReached, "Funding goal must be reached");
+        emit ProfitDeposited(msg.sender, msg.value);
+    }
+    
+    // Events for profit distribution
+    event ProfitDistributed(uint256 totalProfit, uint256 ownerShare, uint256 donorShare);
+    event ProfitDeposited(address indexed depositor, uint256 amount);
+    
+    /**
      * @dev Fallback function to receive ETH
      */
     receive() external payable {
-        revert("Use donate() function to contribute");
+        revert("Use donate() function to contribute or depositProfit() to deposit profits");
     }
 }

@@ -86,7 +86,7 @@ VITE_ESCROW_ADDRESS=0x...
 VITE_GOVERNANCE_ADDRESS=0x...
 
 # Network configuration
-VITE_CHAIN_ID=11155111  # Sepolia testnet
+VITE_CHAIN_ID=1337  # Local development (1337), use 11155111 for Sepolia testnet
 
 # Optional: Alchemy API key for better RPC
 VITE_ALCHEMY_API_KEY=your_alchemy_key

@@ -1,8 +1,8 @@
--- Database Schema for Milestone Funding Platform
+-- SQLite Database Schema for Milestone Funding Platform
 
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     wallet_address VARCHAR(42) UNIQUE NOT NULL,
     username VARCHAR(50),
     email VARCHAR(255),
@@ -14,14 +14,14 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- Projects table
 CREATE TABLE IF NOT EXISTS projects (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     contract_address VARCHAR(42) UNIQUE NOT NULL,
     owner_address VARCHAR(42) NOT NULL,
     title VARCHAR(255) NOT NULL,
     description TEXT NOT NULL,
     category VARCHAR(50),
     image_url TEXT,
-    funding_goal NUMERIC(78, 0) NOT NULL, -- Store as wei
+    funding_goal TEXT NOT NULL, -- Store as string (wei)
     funding_deadline BIGINT NOT NULL,
     total_stages INTEGER NOT NULL,
     status VARCHAR(20) DEFAULT 'active', -- active, funded, cancelled, completed
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS projects (
 
 -- Milestones table
 CREATE TABLE IF NOT EXISTS milestones (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id INTEGER NOT NULL,
     stage_index INTEGER NOT NULL,
     title VARCHAR(255) NOT NULL,
@@ -48,10 +48,10 @@ CREATE TABLE IF NOT EXISTS milestones (
 
 -- Donations table
 CREATE TABLE IF NOT EXISTS donations (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id INTEGER NOT NULL,
     donor_address VARCHAR(42) NOT NULL,
-    amount NUMERIC(78, 0) NOT NULL, -- Store as wei
+    amount TEXT NOT NULL, -- Store as string (wei)
     tx_hash VARCHAR(66) NOT NULL,
     block_number BIGINT,
     timestamp BIGINT NOT NULL,
@@ -62,13 +62,13 @@ CREATE TABLE IF NOT EXISTS donations (
 
 -- Proposals table
 CREATE TABLE IF NOT EXISTS proposals (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id INTEGER NOT NULL,
     proposal_id_onchain INTEGER NOT NULL,
     stage_index INTEGER NOT NULL,
     evidence_hash TEXT NOT NULL,
-    votes_for NUMERIC(78, 0) DEFAULT 0,
-    votes_against NUMERIC(78, 0) DEFAULT 0,
+    votes_for TEXT DEFAULT '0', -- Store as string (wei)
+    votes_against TEXT DEFAULT '0', -- Store as string (wei)
     status VARCHAR(20) DEFAULT 'active', -- active, approved, rejected, executed
     start_time BIGINT NOT NULL,
     end_time BIGINT NOT NULL,
@@ -80,11 +80,11 @@ CREATE TABLE IF NOT EXISTS proposals (
 
 -- Votes table
 CREATE TABLE IF NOT EXISTS votes (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     proposal_id INTEGER NOT NULL,
     voter_address VARCHAR(42) NOT NULL,
     in_favor BOOLEAN NOT NULL,
-    weight NUMERIC(78, 0) NOT NULL,
+    weight TEXT NOT NULL, -- Store as string (wei)
     tx_hash VARCHAR(66) NOT NULL,
     timestamp BIGINT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS votes (
 
 -- Comments table (for project discussions)
 CREATE TABLE IF NOT EXISTS comments (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id INTEGER NOT NULL,
     user_address VARCHAR(42) NOT NULL,
     content TEXT NOT NULL,
@@ -109,7 +109,7 @@ CREATE TABLE IF NOT EXISTS comments (
 
 -- Project updates table
 CREATE TABLE IF NOT EXISTS project_updates (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id INTEGER NOT NULL,
     title VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
@@ -128,21 +128,5 @@ CREATE INDEX IF NOT EXISTS idx_votes_proposal ON votes(proposal_id);
 CREATE INDEX IF NOT EXISTS idx_votes_voter ON votes(voter_address);
 CREATE INDEX IF NOT EXISTS idx_comments_project ON comments(project_id);
 
--- Create updated_at trigger function
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
--- Apply trigger to tables
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_projects_updated_at BEFORE UPDATE ON projects
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_comments_updated_at BEFORE UPDATE ON comments
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- SQLite doesn't support triggers for auto-updating updated_at, so we'll handle it in the application
+-- But we can create a view or use a workaround if needed

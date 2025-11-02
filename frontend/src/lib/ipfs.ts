@@ -6,46 +6,61 @@
 const IPFS_GATEWAY = import.meta.env.VITE_IPFS_GATEWAY || 'https://ipfs.io/ipfs/';
 
 /**
- * Upload a file to IPFS using a public gateway or service
- * In production, use services like Pinata, NFT.Storage, or Web3.Storage
+ * Upload a file to IPFS using backend API or direct Pinata
+ * Prefers backend API (handles Pinata keys server-side)
  */
 export async function uploadToIPFS(file: File): Promise<string> {
-  // This is a placeholder. In production, integrate with:
-  // - Pinata: https://www.pinata.cloud/
-  // - NFT.Storage: https://nft.storage/
-  // - Web3.Storage: https://web3.storage/
+  const BACKEND_API = import.meta.env.VITE_BACKEND_API || 'http://localhost:3001';
   
   try {
-    // Example using Pinata API
-    const formData = new FormData();
-    formData.append('file', file);
-
-    // Note: You need to set up Pinata API keys
+    // Try backend API first (recommended - handles Pinata keys securely)
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch(`${BACKEND_API}/api/ipfs/upload`, {
+        method: 'POST',
+        body: formData,
+        // Don't set Content-Type header - browser will set it with boundary
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.hash) {
+          return data.hash; // Return IPFS hash
+        }
+      }
+    } catch (backendError) {
+      console.warn('Backend IPFS upload failed, trying direct Pinata:', backendError);
+    }
+    
+    // Fallback: Direct Pinata API (requires frontend API keys)
     const pinataApiKey = import.meta.env.VITE_PINATA_API_KEY;
     const pinataSecretKey = import.meta.env.VITE_PINATA_SECRET_KEY;
 
-    if (!pinataApiKey || !pinataSecretKey) {
-      throw new Error('IPFS upload not configured. Please set up Pinata API keys.');
+    if (pinataApiKey && pinataSecretKey) {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+        method: 'POST',
+        headers: {
+          'pinata_api_key': pinataApiKey,
+          'pinata_secret_api_key': pinataSecretKey,
+        },
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.IpfsHash;
+      }
     }
-
-    const response = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
-      method: 'POST',
-      headers: {
-        'pinata_api_key': pinataApiKey,
-        'pinata_secret_api_key': pinataSecretKey,
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to upload to IPFS');
-    }
-
-    const data = await response.json();
-    return data.IpfsHash;
-  } catch (error) {
+    
+    throw new Error('IPFS upload not available. Configure backend API or Pinata keys.');
+  } catch (error: any) {
     console.error('IPFS upload error:', error);
-    throw new Error('Failed to upload file to IPFS');
+    throw new Error(error.message || 'Failed to upload file to IPFS');
   }
 }
 

@@ -4,6 +4,7 @@ import { useVoterInfo, useTotalStaked } from '../hooks/useGovernance';
 import { useUserContribution } from '../hooks/useEscrow';
 import { CONTRACTS } from '../contracts/addresses';
 import { formatEther, formatAddress } from '../lib/utils';
+import { getOffChainVoterInfo, isOffChainVoterRegistered } from '../lib/voterStorage';
 
 export function Profile() {
   const { address, isConnected } = useAccount();
@@ -11,7 +12,12 @@ export function Profile() {
   const { data: totalStaked } = useTotalStaked();
   const { data: userContribution } = useUserContribution(address, CONTRACTS.FUNDING_ESCROW);
 
-  const voter = voterInfo as any;
+  // Check off-chain voter registration (for testing)
+  const offChainVoter = address ? getOffChainVoterInfo(address) : null;
+  const onChainVoter = voterInfo as any;
+  
+  // Use off-chain data if available, otherwise on-chain
+  const voter = offChainVoter || onChainVoter;
   const contribution = userContribution as any;
   
   if (!isConnected) {
@@ -28,9 +34,12 @@ export function Profile() {
     );
   }
 
-  const isVoter = voter?.isRegistered || false;
+  const isVoter = isOffChainVoterRegistered(address) || voter?.isRegistered || false;
   const votingPower = isVoter && voter
-    ? Number(voter.stakedAmount) + (Number(voter.reputation) * 1e18 / 100)
+    ? (offChainVoter 
+        ? (Number(offChainVoter.stakeAmount) + (offChainVoter.reputation * 1e18 / 100))
+        : (Number(voter.stakedAmount || 0) + (Number(voter.reputation || 0) * 1e18 / 100))
+      )
     : 0;
 
   return (
@@ -40,7 +49,7 @@ export function Profile() {
         <div className="flex items-center gap-4 mb-6">
           <div className="w-16 h-16 bg-gradient-to-br from-primary to-primary-600 rounded-full flex items-center justify-center">
             <span className="text-2xl font-bold text-white">
-              {address?.[2].toUpperCase()}
+              {address?.[2]?.toUpperCase() || '?'}
             </span>
           </div>
           <div>
@@ -97,13 +106,19 @@ export function Profile() {
             <div>
               <div className="text-sm text-gray-600 mb-1">Staked Amount</div>
               <div className="text-2xl font-bold text-primary">
-                {formatEther(voter.stakedAmount, 4)} ETH
+                {offChainVoter 
+                  ? formatEther(BigInt(offChainVoter.stakeAmount), 4)
+                  : formatEther(BigInt(voter.stakedAmount || 0), 4)
+                } ETH
               </div>
             </div>
             <div>
               <div className="text-sm text-gray-600 mb-1">Reputation</div>
               <div className="text-2xl font-bold text-gray-900">
-                {Number(voter.reputation)}
+                {offChainVoter 
+                  ? offChainVoter.reputation 
+                  : Number(voter.reputation || 0)
+                }
               </div>
             </div>
             <div>
@@ -115,7 +130,7 @@ export function Profile() {
             <div>
               <div className="text-sm text-gray-600 mb-1">Proposals Voted</div>
               <div className="text-2xl font-bold text-gray-900">
-                {Number(voter.proposalCount)}
+                {offChainVoter ? 0 : Number(voter.proposalCount || 0)}
               </div>
             </div>
           </div>
@@ -124,11 +139,17 @@ export function Profile() {
             <div className="mt-6 p-4 bg-primary-50 rounded-lg">
               <div className="text-sm text-primary-700 mb-1">Your Stake Share</div>
               <div className="text-xl font-bold text-primary">
-                {Number(voter.stakedAmount) > 0
-                  ? ((Number(voter.stakedAmount) / Number(totalStaked as any)) * 100).toFixed(2)
+                {(offChainVoter 
+                    ? Number(offChainVoter.stakeAmount) 
+                    : Number(voter.stakedAmount || 0)
+                  ) > 0
+                  ? (((offChainVoter 
+                        ? Number(offChainVoter.stakeAmount) 
+                        : Number(voter.stakedAmount || 0)
+                      ) / Number(totalStaked as any)) * 100).toFixed(2)
                   : '0'}%
               </div>
-            </div> as any
+            </div>
           )}
         </div>
       )}

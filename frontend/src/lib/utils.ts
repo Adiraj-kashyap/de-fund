@@ -9,9 +9,36 @@ export function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
-export function formatEther(value: bigint, decimals: number = 4): string {
-  const eth = Number(value) / 1e18;
-  return eth.toFixed(decimals);
+export function formatEther(value: bigint | number | string | null | undefined, decimals: number = 4): string {
+  // Handle all types safely
+  let valueBig: bigint;
+  
+  try {
+    if (typeof value === 'bigint') {
+      valueBig = value;
+    } else if (value === null || value === undefined || value === '') {
+      return '0.0000';
+    } else if (typeof value === 'number') {
+      // If already in ETH (not wei), return as is
+      if (value < 1e12) {
+        return value.toFixed(decimals);
+      }
+      valueBig = BigInt(Math.floor(value));
+    } else if (typeof value === 'string') {
+      const parsed = value.trim();
+      if (parsed === '' || parsed === '0') {
+        return '0.0000';
+      }
+      valueBig = BigInt(parsed);
+    } else {
+      return '0.0000';
+    }
+    
+    const eth = Number(valueBig) / 1e18;
+    return eth.toFixed(decimals);
+  } catch {
+    return '0.0000';
+  }
 }
 
 export function parseEtherSafe(value: string): bigint {
@@ -24,9 +51,63 @@ export function parseEtherSafe(value: string): bigint {
   }
 }
 
-export function calculatePercentage(current: bigint, total: bigint): number {
-  if (total === 0n) return 0;
-  return Number((current * 10000n) / total) / 100;
+export function calculatePercentage(current: bigint | number | string | null | undefined, total: bigint | number | string | null | undefined): number {
+  // Convert to BigInt for safe arithmetic, handling all types
+  let currentBig: bigint;
+  let totalBig: bigint;
+  
+  try {
+    if (typeof current === 'bigint') {
+      currentBig = current;
+    } else if (current === null || current === undefined || current === '') {
+      currentBig = 0n;
+    } else if (typeof current === 'number') {
+      currentBig = BigInt(Math.floor(current));
+    } else if (typeof current === 'string') {
+      // Handle string that might be a number or BigInt string
+      const parsed = current.trim();
+      if (parsed === '' || parsed === '0') {
+        currentBig = 0n;
+      } else {
+        currentBig = BigInt(parsed);
+      }
+    } else {
+      currentBig = 0n;
+    }
+  } catch {
+    currentBig = 0n;
+  }
+  
+  try {
+    if (typeof total === 'bigint') {
+      totalBig = total;
+    } else if (total === null || total === undefined || total === '') {
+      totalBig = 1n; // Avoid division by zero
+    } else if (typeof total === 'number') {
+      totalBig = BigInt(Math.floor(total));
+    } else if (typeof total === 'string') {
+      // Handle string that might be a number or BigInt string
+      const parsed = total.trim();
+      if (parsed === '' || parsed === '0') {
+        totalBig = 1n; // Avoid division by zero
+      } else {
+        totalBig = BigInt(parsed);
+      }
+    } else {
+      totalBig = 1n;
+    }
+  } catch {
+    totalBig = 1n;
+  }
+  
+  if (totalBig === 0n) return 0;
+  
+  // Perform BigInt arithmetic
+  try {
+    return Number((currentBig * 10000n) / totalBig) / 100;
+  } catch {
+    return 0;
+  }
 }
 
 export function formatTimeRemaining(seconds: bigint): string {
