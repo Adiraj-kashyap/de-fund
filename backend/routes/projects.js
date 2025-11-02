@@ -1,5 +1,6 @@
 import express from 'express'
 import { getDatabase } from '../db/database.js'
+import { validateProjectData, validateAddress } from '../utils/validation.js'
 
 const router = express.Router()
 const db = getDatabase()
@@ -55,7 +56,7 @@ router.get('/user/:address', (req, res) => {
 })
 
 // Create new project
-router.post('/', (req, res) => {
+router.post('/', (req, res, next) => {
   try {
     const {
       title,
@@ -68,8 +69,22 @@ router.post('/', (req, res) => {
       contractAddress
     } = req.body
 
-    if (!title || !owner || !fundingGoal || !deadline || !totalStages) {
-      return res.status(400).json({ error: 'Missing required fields' })
+    // Validate owner address
+    const addressValidation = validateAddress(owner)
+    if (!addressValidation.valid) {
+      return res.status(400).json({ error: addressValidation.error })
+    }
+
+    // Validate project data
+    const validation = validateProjectData({
+      title,
+      fundingGoal,
+      deadline,
+      totalStages,
+      stageAllocations,
+    })
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.errors.join(', ') })
     }
 
     // For now, contractAddress is optional (will be set after deployment)
@@ -105,7 +120,7 @@ router.post('/', (req, res) => {
     if (error.message.includes('UNIQUE constraint')) {
       return res.status(409).json({ error: 'Project with this contract address already exists' })
     }
-    res.status(500).json({ error: 'Failed to create project' })
+    next(error)
   }
 })
 

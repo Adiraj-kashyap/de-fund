@@ -5,6 +5,8 @@ import { initDatabase } from './db/database.js'
 import projectRoutes from './routes/projects.js'
 import proposalRoutes from './routes/proposals.js'
 import ipfsRoutes from './routes/ipfs.js'
+import { errorHandler } from './middleware/errorHandler.js'
+import { apiLimiter, uploadLimiter, projectCreationLimiter } from './middleware/rateLimiter.js'
 
 dotenv.config()
 
@@ -18,14 +20,15 @@ app.use(cors({
 }))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+app.use(apiLimiter) // Apply rate limiting to all routes
 
 // Initialize database
 initDatabase()
 
 // Routes
-app.use('/api/projects', projectRoutes)
+app.use('/api/projects', projectCreationLimiter, projectRoutes)
 app.use('/api/proposals', proposalRoutes)
-app.use('/api/ipfs', ipfsRoutes)
+app.use('/api/ipfs', uploadLimiter, ipfsRoutes)
 
 // Health check
 app.get('/health', (req, res) => {
@@ -33,10 +36,7 @@ app.get('/health', (req, res) => {
 })
 
 // Error handling
-app.use((err, req, res, next) => {
-  console.error('Error:', err)
-  res.status(500).json({ error: 'Internal server error' })
-})
+app.use(errorHandler)
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
