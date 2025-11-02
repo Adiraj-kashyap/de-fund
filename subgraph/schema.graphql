@@ -1,0 +1,102 @@
+type Project @entity {
+  id: ID! # Contract address
+  owner: Bytes!
+  fundingGoal: BigInt!
+  fundsRaised: BigInt!
+  fundingDeadline: BigInt!
+  totalStages: Int!
+  currentStage: Int!
+  goalReached: Boolean!
+  cancelled: Boolean!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+  
+  # Relations
+  donations: [Donation!]! @derivedFrom(field: "project")
+  milestones: [Milestone!]! @derivedFrom(field: "project")
+  proposals: [Proposal!]! @derivedFrom(field: "project")
+  
+  # Aggregated data
+  donorCount: Int!
+  totalDonations: Int!
+}
+
+type Donation @entity {
+  id: ID! # tx hash + log index
+  project: Project!
+  donor: Bytes!
+  amount: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  txHash: Bytes!
+}
+
+type Milestone @entity {
+  id: ID! # project address + stage index
+  project: Project!
+  stageIndex: Int!
+  allocation: Int!
+  completed: Boolean!
+  completedAt: BigInt
+  fundsReleased: BigInt!
+  recipient: Bytes
+}
+
+type Proposal @entity {
+  id: ID! # Proposal ID
+  project: Project!
+  stageIndex: Int!
+  evidenceHash: String!
+  votesFor: BigInt!
+  votesAgainst: BigInt!
+  status: ProposalStatus!
+  startTime: BigInt!
+  endTime: BigInt!
+  executed: Boolean!
+  executedAt: BigInt
+  createdAt: BigInt!
+  
+  # Relations
+  votes: [Vote!]! @derivedFrom(field: "proposal")
+}
+
+enum ProposalStatus {
+  PENDING
+  ACTIVE
+  APPROVED
+  REJECTED
+  EXECUTED
+}
+
+type Vote @entity {
+  id: ID! # proposal ID + voter address
+  proposal: Proposal!
+  voter: Voter!
+  inFavor: Boolean!
+  weight: BigInt!
+  timestamp: BigInt!
+  txHash: Bytes!
+}
+
+type Voter @entity {
+  id: ID! # Voter address
+  address: Bytes!
+  stakedAmount: BigInt!
+  reputation: Int!
+  proposalsVoted: Int!
+  registeredAt: BigInt!
+  
+  # Relations
+  votes: [Vote!]! @derivedFrom(field: "voter")
+}
+
+type PlatformStats @entity {
+  id: ID! # Always "1"
+  totalProjects: Int!
+  totalDonations: BigInt!
+  totalDonors: Int!
+  totalVoters: Int!
+  totalProposals: Int!
+  totalVotes: Int!
+  updatedAt: BigInt!
+}
