@@ -7,7 +7,9 @@
     "compile": "hardhat compile",
     "test": "hardhat test",
     "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
-    "node": "hardhat node"
+    "deploy:factory": "hardhat run scripts/deploy-factory.js --network sepolia",
+    "node": "hardhat node",
+    "setup": "./setup.sh"
   },
   "keywords": [
     "blockchain",

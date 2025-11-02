@@ -1,8 +1,6 @@
 import express from 'express'
 import multer from 'multer'
 import { create } from 'ipfs-http-client'
-import FormData from 'form-data'
-import fs from 'fs'
 
 const router = express.Router()
 
@@ -11,11 +9,14 @@ const ipfsApiUrl = process.env.IPFS_API_URL || 'http://localhost:5001'
 let ipfsClient = null
 
 try {
-  ipfsClient = create({ url: ipfsApiUrl })
-  console.log('IPFS client initialized')
+  // IPFS HTTP client v60+ uses different API
+  ipfsClient = create({
+    url: ipfsApiUrl,
+  })
+  console.log('IPFS client initialized at', ipfsApiUrl)
 } catch (error) {
   console.warn('IPFS client initialization failed:', error.message)
-  console.warn('IPFS features will be disabled')
+  console.warn('IPFS features will be disabled. Install IPFS node or use public gateway.')
 }
 
 // Configure multer for file uploads
@@ -29,7 +30,10 @@ const upload = multer({
 // Upload file to IPFS
 router.post('/upload', upload.single('file'), async (req, res) => {
   if (!ipfsClient) {
-    return res.status(503).json({ error: 'IPFS service unavailable' })
+    return res.status(503).json({ 
+      error: 'IPFS service unavailable',
+      message: 'Please install IPFS node or configure IPFS_API_URL'
+    })
   }
 
   try {
@@ -37,49 +41,65 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No file provided' })
     }
 
-    const file = await ipfsClient.add({
+    // Use addAll for newer IPFS client API
+    const result = await ipfsClient.add({
       content: req.file.buffer,
-      path: req.file.originalname
+    }, {
+      pin: true,
+      wrapWithDirectory: false
     })
 
+    // Handle both single result and array result
+    const cid = Array.isArray(result) ? result[0].cid : result.cid
+    const size = Array.isArray(result) ? result[0].size : result.size
+
     const gateway = process.env.IPFS_GATEWAY || 'https://ipfs.io/ipfs/'
-    const url = `${gateway}${file.cid.toString()}`
+    const url = `${gateway}${cid.toString()}`
 
     res.json({
-      hash: file.cid.toString(),
+      hash: cid.toString(),
       url,
-      size: file.size
+      size: size || req.file.size
     })
   } catch (error) {
     console.error('IPFS upload error:', error)
-    res.status(500).json({ error: 'Failed to upload to IPFS' })
+    res.status(500).json({ error: 'Failed to upload to IPFS', details: error.message })
   }
 })
 
 // Upload JSON/text data to IPFS
 router.post('/upload-data', async (req, res) => {
   if (!ipfsClient) {
-    return res.status(503).json({ error: 'IPFS service unavailable' })
+    return res.status(503).json({ 
+      error: 'IPFS service unavailable',
+      message: 'Please install IPFS node or configure IPFS_API_URL'
+    })
   }
 
   try {
     const data = req.body.data || JSON.stringify(req.body)
+    const buffer = Buffer.from(data, 'utf-8')
 
-    const file = await ipfsClient.add({
-      content: Buffer.from(data)
+    const result = await ipfsClient.add({
+      content: buffer,
+    }, {
+      pin: true
     })
 
+    const cid = Array.isArray(result) ? result[0].cid : result.cid
+    const size = Array.isArray(result) ? result[0].size : result.size
+
     const gateway = process.env.IPFS_GATEWAY || 'https://ipfs.io/ipfs/'
-    const url = `${gateway}${file.cid.toString()}`
+    const url = `${gateway}${cid.toString()}`
 
     res.json({
-      hash: file.cid.toString(),
+      hash: cid.toString(),
       url,
-      size: file.size
+      size: size || buffer.length
     })
   } catch (error) {
     console.error('IPFS upload error:', error)
-    res.status(500).json({ error: 'Failed to upload to IPFS' })
+    res.status(500).json({ error: 'Failed to upload to IPFS', details: error.message })
   }
 })
 

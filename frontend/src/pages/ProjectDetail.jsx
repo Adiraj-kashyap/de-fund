@@ -5,6 +5,7 @@ import { formatEther, parseEther } from 'viem'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
 import { CONTRACT_ADDRESSES, FUNDING_ESCROW_ABI, MILESTONE_GOVERNANCE_ABI } from '../config/contracts'
+import MilestoneForm from '../components/MilestoneForm'
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
@@ -250,9 +251,15 @@ function MilestoneCard({ stageIndex, projectAddress, currentStage, isOwner }) {
         </div>
       </div>
       {isCurrent && isOwner && !isCompleted && (
-        <button className="mt-3 btn-primary text-sm">
-          Submit Milestone Completion
-        </button>
+        <MilestoneForm
+          projectAddress={projectAddress}
+          stageIndex={stageIndex}
+          onSuccess={() => {
+            toast.success('Milestone proposal created!')
+            // Refresh page data
+            window.location.reload()
+          }}
+        />
       )}
     </div>
   )
